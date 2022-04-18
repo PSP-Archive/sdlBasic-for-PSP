@@ -1,18 +1,24 @@
-sdlBasic for PSP version 0.6
----------------------------------------
+sdlBasic for PSP version 0.7
+----------------------------
 
 sdlBasic is a small, efficient multiplatform basic interpreter originally created by Roberto Viola in 2002.
 Its core is based on wxBasic and syntax, inspired by AMOS, is easy to learn by beginners
 http://www.sdlbasic.altervista.org contains the reference guides language overview, comand syntax, examples and
 additional tools and resources, required for development.
 
+New for 0.7
+-----------
+- Updated for SDL with TV support. Now those 640x480 screens are actually handy. Hold the TRIANGLE button
+when you run the application from the XMB for the TV preferences.
+
+
 Installation
----------------
+------------
 The interpreter only works on custom PSP 3.XX firmwares.
 Copy sdlBasic folder to ms:/PSP/GAME (or ms:/PSP/GAME3XX where XX is your custom firmware's subversion.
 
 Using the interpreter
---------------------------
+---------------------
 sdlBasic program(s) should be saved in [program_name].sdlbas file and placed in sdlBasic folder, together with EBOOT.PBP file and 
 fonts directory. Of course, sdlBasic folder can be renamed, and EBOOT icon/background can be replaced with a number of tools.
 If only one .sdlbas file is detected in the folder, the interpreter immediatelly runs it. Overwise the program selection screen is displayed.

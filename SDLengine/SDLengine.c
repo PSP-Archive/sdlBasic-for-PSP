@@ -329,7 +329,7 @@ int initialize(int audio,int socket,int defaults)
 		SDLerr(stderr,"Warning: Can't initialize net system: %s\n",SDL_GetError());
 		enabledsock=0;
 	    }
-	    else{ 
+	    else{
 		enabledsock=1;
 	    }
 	}

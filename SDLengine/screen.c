@@ -68,8 +68,8 @@ int setdisplay(int w,int h, int bpp, int mode)
 	switch (mode){
 	case 0:
 		/* Open the display device full screen */
-			//SDLdisplay = SDL_SetVideoMode(w, h, bpp, SDL_HWSURFACE|SDL_FULLSCREEN|SDL_DOUBLEBUF|SDL_ANYFORMAT|SDL_HWPALETTE|SDL_SRCALPHA );//|SDL_ASYNCBLIT
-			SDLdisplay = SDL_SetVideoMode(w, h, bpp, 0 );//|SDL_ASYNCBLIT
+		//SDLdisplay = SDL_SetVideoMode(w, h, bpp, SDL_HWSURFACE|SDL_FULLSCREEN|SDL_DOUBLEBUF|SDL_ANYFORMAT|SDL_HWPALETTE|SDL_SRCALPHA );//|SDL_ASYNCBLIT
+		SDLdisplay = SDL_SetVideoMode(w, h, bpp, SDL_SWSURFACE | ((bpp == 8) ? SDL_HWPALETTE : 0) );//|SDL_ASYNCBLIT
 		if ( SDLdisplay == NULL ) {
 			printf("SDL_SetVideoMode error\n");
 			display_mode=1;

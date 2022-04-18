@@ -47,13 +47,17 @@
 
 #include "class.h"
 
-PSP_HEAP_SIZE_KB(20480);
+PSP_MAIN_THREAD_ATTR(THREAD_ATTR_USER|PSP_THREAD_ATTR_VFPU);
+PSP_HEAP_SIZE_KB(-1024);
 
 #define  MAXFILES  40
-#define printF  pspDebugScreenPrintf
+
 char basfiles[MAXFILES][64];
 int filecount ;
 char sdlbasicfile[64];
+
+int PSP_TV_CABLE = 0;
+int PSP_TV_LACED = 0;
 
 //____________________________________________________________________________________________________________________
 
@@ -96,7 +100,7 @@ long findBind( char *title)
 
 int interpret( int cmdArgc, char **cmdArgv )
 {
-	
+
     int i,r;
     long offset;
 
@@ -119,7 +123,7 @@ int interpret( int cmdArgc, char **cmdArgv )
     // if name of executable <> sdlBrt =autoboot
     r=strlen(cmdArgv[0]);
 
-	if (cmdArgc==1) { 
+	if (cmdArgc==1) {
 	    	cmdArgv[cmdArgc]=(char *)malloc(strlen(sdlbasicfile)+1);
 		cmdArgc=2;
 		strcpy(cmdArgv[1],sdlbasicfile);
@@ -190,6 +194,102 @@ int interpret( int cmdArgc, char **cmdArgv )
 
 //____________________________________________________________________________________________________________________
 
+void pspDveScreenInit(int mode);
+void pspDveScreenClear(void);
+void pspDveScreenPrintf(const char *fmt, ...) __attribute__((format(printf,1,2)));
+int pspDveScreenPrintData(const char *buff, int size);
+void pspDveScreenSetBackColor(u32 color);
+void pspDveScreenSetTextColor(u32 color);
+
+void debugPrintf(const char *fmt, ...) __attribute__((format(printf,1,2)));
+
+void debugSetup() {
+	/* get SDL video preferences */
+	FILE *fd;
+	char temp[256];
+	int x;
+
+	fd = fopen("SDL_VID_PREFS", "r");
+	if (fd != NULL)
+	{
+		for (;;)
+		{
+			temp[0] = 0;
+			fgets(temp, 255, fd);
+			if (temp[0] == 0)
+				break;
+			if (!strncmp(temp, "-vmode", 6))
+			{
+				temp[0] = 0;
+				fgets(temp, 255, fd);
+				sscanf(temp, "%d", &x);
+				PSP_TV_CABLE = x;
+			}
+			if (!strncmp(temp, "-laced", 6))
+			{
+				temp[0] = 0;
+				fgets(temp, 255, fd);
+				sscanf(temp, "%d", &x);
+				PSP_TV_LACED = x;
+			}
+		}
+		fclose(fd);
+	}
+	else
+	{
+		/* no prefs file - default to "normal" LCD */
+		PSP_TV_CABLE = 0;
+		PSP_TV_LACED = 0;
+	}
+
+	if (!PSP_TV_CABLE)
+	{
+		pspDebugScreenInit();
+		pspDebugScreenClear();
+	}
+	else
+	{
+		pspDveScreenInit((PSP_TV_CABLE == 1) ? 0 : PSP_TV_LACED ? 2 : 1);
+		pspDveScreenClear();
+	}
+
+}
+
+void debugScreenSetBackColor(u32 c) {
+	if (!PSP_TV_CABLE)
+		pspDebugScreenSetBackColor(c);
+	else
+		pspDveScreenSetBackColor(c);
+}
+
+void debugScreenSetTextColor(u32 c) {
+	if (!PSP_TV_CABLE)
+		pspDebugScreenSetTextColor(c);
+	else
+		pspDveScreenSetTextColor(c);
+}
+
+void debugScreenClear() {
+	if (!PSP_TV_CABLE)
+		pspDebugScreenClear();
+	else
+		pspDveScreenClear();
+}
+
+void debugPrintf(const char *format, ...)
+{
+	va_list	opt;
+	char	buff[2048];
+	int		bufsz;
+
+	va_start(opt, format);
+	bufsz = vsnprintf( buff, (size_t) sizeof(buff), format, opt);
+	if (!PSP_TV_CABLE)
+		pspDebugScreenPrintData(buff, bufsz);
+	else
+		pspDveScreenPrintData(buff, bufsz);
+	va_end(opt);
+}
 
 void readBasFiles() {
 	filecount =0;
@@ -209,30 +309,35 @@ void readBasFiles() {
 }
 
 void printlogo() {
-	pspDebugScreenSetBackColor(0x00770000);
-	pspDebugScreenClear();
-	printF("\
-  ___  ___  __      ___   __   ___  __  __\t\t\t\t \n \
-/ __)(   \\(  )    (  ,) (  ) / __)(  )/ _) \n \
-\\__ \\ ) ) ))(__    ) ,\\ /__\\ \\__ \\ )(( (_ \n \
-(___/(___/(____)  (___/(_)(_)(___/(__)\\__)       \n\
+	debugScreenSetBackColor(0x00770000);
+	debugScreenClear();
+	if (PSP_TV_CABLE)
+		debugPrintf("\n\n\n\n\n");
+	debugPrintf("\
+\t\t  ___  ___  __      ___   __   ___  __  __\t\t \n \
+\t\t/ __)(   \\(  )    (  ,) (  ) / __)(  )/ _) \n \
+\t\t\\__ \\ ) ) ))(__    ) ,\\ /__\\ \\__ \\ )(( (_ \n \
+\t\t(___/(___/(____)  (___/(_)(_)(___/(__)\\__)       \n\
 \n\n");
 
 }
 
 void selectBasFile(){
 	int i;
-        int selected=0;
+    int selected=0;
 	SceCtrlData cpad;
+
+	debugSetup();
+
 	memset(sdlbasicfile,0,64);
 	readBasFiles();
 	if (filecount==0) {
 		printlogo();
-		pspDebugScreenSetBackColor(0x00000077);
-		printF("\n\n\n\n\t\t\tNO .SDLBAS FILES FOUND!\n\n\n\n\tPLEASE PLASE THE FILES IN THE DIRECTORY WITH EBOOT.PBP.\n\n\n\n\n");
+		debugScreenSetBackColor(0x00000077);
+		debugPrintf("\n\n\n\n\t\t\tNO .SDLBAS FILES FOUND!\n\n\n\n\tPLEASE PLASE THE FILES IN THE DIRECTORY WITH EBOOT.PBP.\n\n\n\n\n");
 		sceKernelDelayThread(3000000);
 		return;
-		
+
 	}
 	if (filecount==1)  {//only one file
                 strcpy(sdlbasicfile,basfiles[0]);
@@ -241,55 +346,51 @@ void selectBasFile(){
 
 	while (strlen(sdlbasicfile)==0) {
 		printlogo();
-		pspDebugScreenSetBackColor(0x00007700);
-		printF("\t\t\t\tPLEASE SELECT THE FILE:\t\t\t\t\t");
-		pspDebugScreenSetBackColor(0x00000000);
-		printF("\n\n");
+		debugScreenSetBackColor(0x00007700);
+		debugPrintf("\t\t\t\tPLEASE SELECT THE FILE:\t\t\t\t\t");
+		debugScreenSetBackColor(0x00000000);
+		debugPrintf("\n\n");
 		for (i=0; i<filecount; i++) {
-                        if (i==selected) {
-				pspDebugScreenSetTextColor(0x00ffff00);
-                                printF(">>> ");
-				pspDebugScreenSetTextColor(0xffffffff);
-
+            if (i==selected) {
+				debugScreenSetTextColor(0x00ffff00);
+				if (PSP_TV_CABLE)
+					debugPrintf("\t");
+                debugPrintf(">>> ");
+				debugScreenSetTextColor(0xffffffff);
 			}
-                        else
-                                printF("    ");
-                        printF("%s\n",basfiles[i]);
-                }
-		for (i=0; i< 23-filecount; i++) 
-                        printF("\n");
+            else {
+				if (PSP_TV_CABLE)
+					debugPrintf("\t");
+                debugPrintf("    ");
+			}
+            debugPrintf("%s\n",basfiles[i]);
+        }
+		for (i=0; i< 23-filecount; i++)
+            debugPrintf("\n");
 
 		while (1) {
-                sceCtrlReadBufferPositive(&cpad, 1);
-                if ((cpad.Buttons & PSP_CTRL_UP) || (cpad.Ly <= 0x30)){
-                        if (selected>0) selected--;
-                        break;
-
-                }
-                if ((cpad.Buttons & PSP_CTRL_DOWN) || (cpad.Ly >= 0xD0)){
-                        if (selected<filecount-1) selected++;
-                        break;
-
-                }
-
-                 if (cpad.Buttons & PSP_CTRL_CROSS) {
-                        strcpy(sdlbasicfile,basfiles[selected]);
-                        break;
-                }
-                }
-		sceKernelDelayThread(90000);
-
+            sceCtrlReadBufferPositive(&cpad, 1);
+            if ((cpad.Buttons & PSP_CTRL_UP) || (cpad.Ly <= 0x30)){
+                if (selected>0) selected--;
+                    break;
+            }
+            if ((cpad.Buttons & PSP_CTRL_DOWN) || (cpad.Ly >= 0xD0)){
+                if (selected<filecount-1) selected++;
+                    break;
+            }
+            if (cpad.Buttons & PSP_CTRL_CROSS) {
+                strcpy(sdlbasicfile,basfiles[selected]);
+                    break;
+            }
+        }
+		sceKernelDelayThread(80000);
+		sceDisplayWaitVblankStart();
 	}
-
 }
 
 
 int main(int argc, char **argv)
 {
-	scePowerSetClockFrequency (333,333,166);
-	if (argc==1) {
-		selectBasFile();
-	}
     int r,r1;
     char *curdir;
     int audio,socket,debug,defaults;
@@ -378,10 +479,16 @@ int main(int argc, char **argv)
 	}
     }
 
+	scePowerSetClockFrequency (333,333,166);
 
     /*initializing SDLengine module */
     r=initialize(audio,socket,defaults);
+	if (r < 0)
+		exit(0);
 
+	if (argc==1) {
+		selectBasFile();
+	}
 
 /* gp2x Problem with allocation strings ??? */
 #if defined(WIN32)
